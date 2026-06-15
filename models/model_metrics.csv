@@ -1,0 +1,4 @@
+model,accuracy,precision_macro,recall_macro,f1_macro
+Logistic Regression,1.0,1.0,1.0,1.0
+Naive Bayes,1.0,1.0,1.0,1.0
+Support Vector Machine,1.0,1.0,1.0,1.0
