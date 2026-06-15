@@ -17,32 +17,59 @@ LABEL_COLUMN_CANDIDATES = [
 ]
 
 
-def _normalise_sentiment(value) -> Optional[str]:
-    """Map common Kaggle label/rating formats to Positive/Negative/Neutral."""
+def _normalise_sentiment(value, label_column: str | None = None) -> Optional[str]:
+    """Map common Kaggle label, feedback and rating formats to a sentiment class.
+
+    Important distinction:
+    - The fastText Amazon Reviews dataset uses explicit labels: __label__1 / __label__2.
+    - Alexa-style CSV files often use numeric star ratings: 1-2 negative, 3 neutral, 4-5 positive.
+    - Some Alexa files use a feedback column: 0 negative, 1 positive.
+
+    Plain numeric values are therefore interpreted using the source column name rather
+    than assuming that the number 2 always means a positive fastText label.
+    """
     if pd.isna(value):
         return None
 
     value_str = str(value).strip().lower()
+    column = (label_column or "").strip().lower()
 
-    if value_str in {"positive", "pos", "p", "__label__2", "2", "1.0"}:
-        # In the Amazon Reviews fastText dataset, __label__2 means positive.
+    if value_str in {"positive", "pos", "p"}:
         return "Positive"
-    if value_str in {"negative", "neg", "n", "__label__1", "0", "0.0"}:
-        # In the Amazon Reviews fastText dataset, __label__1 means negative.
+    if value_str in {"negative", "neg", "n"}:
         return "Negative"
-    if value_str in {"neutral", "neu", "3", "3.0"}:
+    if value_str in {"neutral", "neu"}:
         return "Neutral"
 
+    if value_str == "__label__2":
+        return "Positive"
+    if value_str == "__label__1":
+        return "Negative"
+
     try:
-        rating = float(value_str)
-        if rating <= 2:
-            return "Negative"
-        if rating == 3:
-            return "Neutral"
-        if rating >= 4:
-            return "Positive"
+        number = float(value_str)
     except ValueError:
         return None
+
+    if column == "feedback":
+        if number == 1:
+            return "Positive"
+        if number == 0:
+            return "Negative"
+
+    # Rating/score columns in review datasets typically use 1-5 stars.
+    if column in {"rating", "score", "overall", "stars", "star_rating"} or 1 <= number <= 5:
+        if number <= 2:
+            return "Negative"
+        if number == 3:
+            return "Neutral"
+        if number >= 4:
+            return "Positive"
+
+    if number == 0:
+        return "Negative"
+    if number == 1:
+        return "Positive"
 
     return None
 
@@ -60,7 +87,7 @@ def _read_fasttext_file(path: Path, limit: Optional[int] = None) -> pd.DataFrame
                 continue
             if line.startswith("__label__"):
                 label, _, text = line.partition(" ")
-                records.append({"review_text": text, "sentiment": _normalise_sentiment(label), "source": path.name})
+                records.append({"review_text": text, "sentiment": _normalise_sentiment(label, label_column="fasttext_label"), "source": path.name})
     return pd.DataFrame(records)
 
 
@@ -94,7 +121,7 @@ def load_reviews(path: Optional[str | Path] = None, limit: Optional[int] = None)
         text_col = _detect_text_column(df)
         label_col = _detect_label_column(df)
         df = df[[text_col, label_col]].rename(columns={text_col: "review_text", label_col: "sentiment"})
-        df["sentiment"] = df["sentiment"].apply(_normalise_sentiment)
+        df["sentiment"] = df["sentiment"].apply(lambda value: _normalise_sentiment(value, label_column=label_col))
         df["source"] = path.name
         if limit:
             df = df.head(limit)
