@@ -1,319 +1,524 @@
 # NLP Projesi: Duygu Analizi Gösterge Paneli
 
-Bu proje, IYD 328 İş Yeri Deneyimi kapsamında verilen **“2. Proje — NLP Projesi: Duygu Analizi Gösterge Paneli”** isterlerine göre hazırlanmıştır. Sistem, müşteri yorumlarını otomatik olarak **Positive**, **Negative** veya **Neutral** sınıflarına ayırır; tahmin sonucunu güven skoru ve zaman damgası ile SQL veritabanına kaydeder; sonuçları etkileşimli Streamlit gösterge panelinde raporlar.
+Bu proje, **IYD 328 İş Yeri Deneyimi** dersi kapsamında geliştirilen uçtan uca bir **Natural Language Processing (NLP) tabanlı Duygu Analizi Gösterge Paneli** uygulamasıdır.
 
-## 1. Sistem Tasarımı
+Projenin temel amacı, müşteri yorumlarını otomatik olarak **Positive**, **Negative** veya **Neutral** sınıflarına ayırmak, tahmin sonuçlarını güven skoru ve zaman damgası ile SQL veritabanında saklamak ve bu sonuçları etkileşimli bir dashboard üzerinden analiz edilebilir hale getirmektir.
 
-Proje uçtan uca bir NLP yazılım sistemi olarak tasarlanmıştır:
+---
+
+## 1. Proje Amacı
+
+Bu proje yalnızca bir makine öğrenmesi modeli oluşturmak için değil, aynı zamanda NLP, SQL veritabanı, istatistiksel değerlendirme ve veri görselleştirmeyi birleştiren bütünleşik bir yazılım sistemi geliştirmek için hazırlanmıştır.
+
+Proje kapsamında kullanıcıların müşteri yorumlarını dashboard üzerinden girebilmesi, sistemin bu yoruma anlık duygu tahmini üretmesi ve tahmin sonucunun SQL veritabanında saklanması amaçlanmıştır.
+
+Bu yönüyle proje aşağıdaki alanları birlikte kullanır:
+
+* Natural Language Processing (NLP)
+* Text preprocessing
+* Machine learning classification
+* Statistical model evaluation
+* SQL database integration
+* Data visualization
+* Streamlit dashboard development
+* Git/GitHub version control
+* Docker containerization support
+
+---
+
+## 2. Kullanılan Veri Seti
+
+Projede Kaggle üzerinde bulunan **Amazon Reviews** veri seti kullanılmıştır.
+
+Kullanılan veri seti fastText formatındadır ve iki ana dosyadan oluşur:
 
 ```text
-Kaggle / Sample Dataset
-        ↓
-Pandas DataFrame
-        ↓
-Text Cleaning + Lowercase + Tokenization + Stopword Removal
-        ↓
-TF-IDF Feature Extraction
-        ↓
-Logistic Regression / Naive Bayes / SVM
-        ↓
-Model Evaluation + Best Model Selection
-        ↓
-Streamlit Dashboard
-        ↓
-SQL Database: reviews + predictions
+train.ft.txt.bz2
+test.ft.txt.bz2
 ```
 
-Ana bileşenler:
+Veri setindeki etiketler şu şekilde yorumlanmıştır:
 
-- `src/data_loader.py`: Kaggle veya örnek veri setini okur.
-- `src/preprocessing.py`: NLP ön işleme işlemlerini yapar.
-- `src/train_models.py`: 3 farklı ML modelini eğitir ve karşılaştırır.
-- `src/database.py`: SQL tablolarını oluşturur ve tahmin kayıtlarını saklar.
-- `src/predict.py`: Yeni yorumlar için duygu tahmini üretir.
-- `app.py`: Streamlit gösterge panelidir.
+```text
+__label__1 -> Negative
+__label__2 -> Positive
+```
 
-## 2. Veri Seti Açıklaması
+Veri seti gerçek müşteri yorumlarından oluştuğu için duygu analizi projesi için uygundur. Ancak bu veri setinde doğrudan **Neutral** etiketi bulunmamaktadır. Bu nedenle Neutral sınıfı, modelin düşük güven skoru verdiği durumlarda kullanılacak şekilde tasarlanmıştır.
 
-Ödev dokümanında Kaggle üzerindeki Amazon Reviews veri seti belirtilmiştir:
+Ayrıca dashboard Türkçe arayüzle kullanıldığı için `Berbat`, `Mükemmel`, `İdare eder` gibi açık Türkçe duygu ifadeleri için küçük bir kural tabanlı destek katmanı eklenmiştir.
 
-- Dataset: `bittlingmayer/amazonreviews`
+---
 
-Kaggle veri setleri çoğu zaman oturum veya API anahtarı gerektirdiği için proje klasöründe küçük bir `sample_reviews.csv` dosyası da vardır. Bu dosya projeyi hemen çalıştırmak, dashboard'u göstermek ve eğitim akışını test etmek için eklenmiştir.
+## 3. Proje Kapsamı
 
-Desteklenen veri formatları:
+Proje aşağıdaki temel işlevleri destekler:
 
-- `data/raw/sample_reviews.csv`
-- Alexa review benzeri CSV dosyaları: `review_text + sentiment` veya `verified_reviews + rating`
-- Amazon Reviews fastText formatı: `train.ft.txt`, `test.ft.txt`, `.bz2`
+* Amazon Reviews veri setini okuma
+* fastText formatındaki veriyi pandas DataFrame formatına dönüştürme
+* Yorum metinlerini temizleme
+* Metinleri küçük harfe dönüştürme
+* Stopword kaldırma
+* Tokenization işlemi
+* TF-IDF ile özellik çıkarımı
+* Logistic Regression, Naive Bayes ve Support Vector Machine modellerini eğitme
+* Accuracy, Precision, Recall, F1-Score ve Confusion Matrix ile model değerlendirme
+* En iyi modeli `joblib` formatında kaydetme
+* Yeni yorumlar için anlık duygu tahmini yapma
+* Tahminleri SQL veritabanına kaydetme
+* Duygu dağılımlarını dashboard üzerinden görselleştirme
+* Model performansını grafiklerle gösterme
+* SQL kayıtlarını dashboard üzerinden görüntüleme
 
-Etiket eşleştirme:
+---
 
-- Rating `1-2` → `Negative`
-- Rating `3` → `Neutral`
-- Rating `4-5` → `Positive`
-- `__label__1` → `Negative`
-- `__label__2` → `Positive`
+## 4. Kullanılan Teknolojiler
 
-Binary Kaggle dosyalarında açık `Neutral` etiketi olmayabilir. Bu durumda model tahmin olasılığı düşükse sistem sonucu `Neutral` olarak gösterir.
+| Alan              | Kullanılan Teknoloji                                     |
+| ----------------- | -------------------------------------------------------- |
+| Programlama dili  | Python                                                   |
+| Veri işleme       | pandas, numpy                                            |
+| NLP               | Text cleaning, tokenization, stopword removal, TF-IDF    |
+| Makine öğrenmesi  | scikit-learn                                             |
+| Modeller          | Logistic Regression, Naive Bayes, Support Vector Machine |
+| Görselleştirme    | matplotlib, plotly                                       |
+| Dashboard         | Streamlit                                                |
+| Veritabanı        | SQLite, SQLAlchemy                                       |
+| Model kaydetme    | joblib                                                   |
+| Sürüm kontrolü    | Git, GitHub                                              |
+| Container desteği | Docker, docker-compose                                   |
 
-## 3. NLP Ön İşleme Süreci
+---
 
-Proje aşağıdaki NLP adımlarını uygular:
+## 5. Proje Klasör Yapısı
 
-1. Text cleaning: URL, sayı, noktalama ve özel karakter temizliği.
-2. Lowercase conversion: metinlerin küçük harfe dönüştürülmesi.
-3. Tokenization: yorumların kelimelere ayrılması.
-4. Stopword removal: anlamsal katkısı düşük yaygın kelimelerin çıkarılması.
-5. TF-IDF feature extraction: metinlerin sayısal özellik vektörlerine dönüştürülmesi.
+```text
+nlp_sentiment_dashboard/
+│
+├── app.py
+├── requirements.txt
+├── README.md
+├── Dockerfile
+├── docker-compose.yml
+│
+├── src/
+│   ├── config.py
+│   ├── data_loader.py
+│   ├── preprocessing.py
+│   ├── train_models.py
+│   ├── predict.py
+│   └── database.py
+│
+├── scripts/
+│   ├── run_training.py
+│   ├── prepare_dataset.py
+│   └── init_db.py
+│
+├── data/
+│   ├── raw/
+│   │   ├── README.md
+│   │   ├── sample_reviews.csv
+│   │   ├── train.ft.txt.bz2
+│   │   └── test.ft.txt.bz2
+│   │
+│   └── processed/
+│       └── processed_reviews.csv
+│
+├── models/
+│   ├── best_model.joblib
+│   └── model_metrics.csv
+│
+├── reports/
+│   └── figures/
+│       ├── confusion_matrix.png
+│       ├── model_comparison.png
+│       └── word_frequency.png
+│
+├── docs/
+│   └── screenshots/
+│       ├── prediction_page.png
+│       ├── analytics_page.png
+│       ├── model_performance_page.png
+│       ├── dataset_page.png
+│       └── sql_records_page.png
+│
+└── sql/
+    ├── schema_sqlite.sql
+    └── schema_sqlserver.sql
+```
 
-## 4. Model Seçimi ve Gerekçesi
+Not: Kaggle veri dosyaları büyük olduğu için GitHub'a yüklenmemelidir. Veri seti kullanıcı tarafından Kaggle'dan indirilip `data/raw/` klasörüne yerleştirilmelidir.
 
-Projede üç model eğitilir:
+---
 
-1. **Logistic Regression**
-   - Metin sınıflandırmada güçlü ve yorumlanabilir bir temel modeldir.
-2. **Naive Bayes**
-   - NLP problemlerinde hızlı, basit ve etkili bir modeldir.
-3. **Support Vector Machine (SVM)**
-   - Yüksek boyutlu TF-IDF vektörleriyle iyi sonuç verebilir.
+## 6. NLP Ön İşleme Süreci
 
-En iyi model `f1_macro` skoruna göre seçilir ve `models/best_model.joblib` dosyasına kaydedilir.
+Model eğitiminden önce yorum metinleri aşağıdaki NLP ön işleme adımlarından geçirilmiştir:
 
-## 5. Değerlendirme Ölçütleri
+1. **Text cleaning:** URL, sayı, noktalama ve özel karakter temizliği yapılır.
+2. **Lowercase conversion:** Tüm metin küçük harfe dönüştürülür.
+3. **Tokenization:** Yorum metni kelimelere ayrılır.
+4. **Stopword removal:** Anlamsal katkısı düşük yaygın kelimeler temizlenir.
+5. **TF-IDF feature extraction:** Metinler sayısal özellik vektörlerine dönüştürülür.
 
-Her model aşağıdaki metriklerle değerlendirilir:
+Bu adımlar sonucunda ham müşteri yorumları makine öğrenmesi modellerinin kullanabileceği sayısal forma dönüştürülür.
 
-- Accuracy
-- Precision Macro
-- Recall Macro
-- F1-Score Macro
-- Confusion Matrix
+---
 
-Çıktılar:
+## 7. Kullanılan Makine Öğrenmesi Modelleri
 
-- `models/model_metrics.csv`
-- `reports/figures/model_comparison.png`
-- `reports/figures/confusion_matrix.png`
-- `reports/figures/word_frequency.png`
+Projede üç farklı makine öğrenmesi modeli eğitilmiş ve karşılaştırılmıştır.
 
-## 6. SQL Veritabanı Tasarımı
+### 7.1 Logistic Regression
 
-Proje varsayılan olarak SQLite kullanır. Böylece kurulum hızlıdır ve ek veritabanı servisi gerektirmez.
+Logistic Regression, metin sınıflandırma problemlerinde sık kullanılan, hızlı ve yorumlanabilir bir modeldir. TF-IDF vektörleriyle birlikte duygu analizi problemlerinde güçlü bir temel model olarak kullanılabilir.
 
-Tablolar:
+### 7.2 Naive Bayes
 
-### reviews
+Naive Bayes, özellikle metin sınıflandırma ve duygu analizi problemlerinde yaygın olarak kullanılan hızlı bir algoritmadır. Basit yapısına rağmen birçok NLP probleminde etkili sonuçlar verebilir.
 
-Hazırlanmış veri seti kayıtlarını saklar.
+### 7.3 Support Vector Machine
 
-| Alan | Açıklama |
-| --- | --- |
-| id | Birincil anahtar |
-| review_text | Orijinal yorum metni |
-| clean_review | Temizlenmiş yorum metni |
-| sentiment | Gerçek duygu etiketi |
-| source | Veri kaynağı |
-| loaded_at | Yüklenme zamanı |
+Support Vector Machine (SVM), yüksek boyutlu TF-IDF özellik uzayında iyi performans gösterebilen güçlü bir sınıflandırma modelidir. Final eğitim sonucunda en yüksek başarıyı SVM modeli vermiştir.
 
-### predictions
+---
 
-Kullanıcıların dashboard üzerinden gönderdiği yorum tahminlerini saklar.
+## 8. Model Değerlendirme Metrikleri
 
-| Alan | Açıklama |
-| --- | --- |
-| id | Birincil anahtar |
-| review_text | Kullanıcının girdiği yorum |
-| clean_review | Ön işlenmiş yorum |
-| predicted_sentiment | Tahmin edilen duygu |
-| confidence_score | Güven skoru |
-| model_name | Kullanılan model |
-| classified_at | Sınıflandırma zaman damgası |
+Modeller aşağıdaki metriklerle değerlendirilmiştir:
 
-Ek SQL dosyaları:
+* **Accuracy:** Toplam doğru tahmin oranı
+* **Precision:** Pozitif tahminlerin ne kadarının doğru olduğunu gösterir
+* **Recall:** Gerçek sınıfların ne kadarının doğru yakalandığını gösterir
+* **F1-Score:** Precision ve Recall metriklerinin dengeli ortalamasıdır
+* **Confusion Matrix:** Modelin sınıflar arasında yaptığı doğru ve hatalı tahminleri gösterir
 
-- `sql/schema_sqlite.sql`
-- `sql/schema_sqlserver.sql`
-- `sql/analytics_queries.sql`
+Bu metrikler sayesinde modeller yalnızca doğruluk oranı ile değil, sınıflar arasındaki başarı dengesi açısından da karşılaştırılmıştır.
 
-## 7. Kurulum Talimatları
+---
 
-### 7.1. Python ile Çalıştırma
+## 9. Final Eğitim Sonuçları
+
+Final eğitim aşamasında Kaggle veri setinden alınan **100.000 yorum** kullanılmıştır. Veri seti eğitim ve test kümelerine ayrılmıştır. Test kümesinde 25.000 yorum bulunmaktadır.
+
+### Model Performans Karşılaştırması
+
+| Model                  | Accuracy | Precision Macro | Recall Macro | F1 Macro |
+| ---------------------- | -------: | --------------: | -----------: | -------: |
+| Support Vector Machine |     0.89 |            0.89 |         0.89 |     0.89 |
+| Logistic Regression    |     0.88 |            0.88 |         0.88 |     0.88 |
+| Naive Bayes            |     0.87 |            0.87 |         0.87 |     0.87 |
+
+Final sonuçlara göre en iyi model:
+
+```text
+Support Vector Machine
+```
+
+Bu model `models/best_model.joblib` dosyasına kaydedilmiştir.
+
+---
+
+## 10. Neutral Sınıfı Yaklaşımı
+
+Kullanılan Kaggle veri seti yalnızca iki ana sınıf içerir:
+
+```text
+Positive
+Negative
+```
+
+Ancak proje isterlerinde yorumların **Positive**, **Negative** veya **Neutral** olarak sınıflandırılması beklenmektedir.
+
+Bu nedenle sistemde Neutral sınıfı şu yaklaşımla uygulanmıştır:
+
+* Modelin tahmin güveni yüksekse sonuç Positive veya Negative olarak gösterilir.
+* Modelin tahmin güveni düşükse sonuç Neutral olarak gösterilir.
+* Confidence threshold değeri 0.80 olarak ayarlanmıştır.
+* Türkçe açık duygu ifadeleri için ek kural tabanlı kontrol uygulanmıştır.
+
+Örnek sonuçlar:
+
+| Yorum                                       | Beklenen Sonuç |
+| ------------------------------------------- | -------------- |
+| This product is amazing.                    | Positive       |
+| The product stopped working after two days. | Negative       |
+| The product is okay.                        | Neutral        |
+| Berbat!                                     | Negative       |
+| Mükemmel!                                   | Positive       |
+| İdare eder.                                 | Neutral        |
+
+---
+
+## 11. SQL Veritabanı Tasarımı
+
+Projede sınıflandırma sonuçları SQL veritabanında saklanmaktadır.
+
+SQLite veritabanı dosyası:
+
+```text
+sentiment_dashboard.db
+```
+
+Veritabanı temel olarak iki tablo içerir:
+
+### 11.1 reviews
+
+Bu tablo işlenmiş yorum veri setini saklar.
+
+Örnek alanlar:
+
+* review_text
+* clean_review
+* sentiment
+
+### 11.2 predictions
+
+Bu tablo dashboard üzerinden yapılan yeni tahminleri saklar.
+
+Örnek alanlar:
+
+* review_text
+* clean_review
+* predicted_sentiment
+* confidence_score
+* model_name
+* classified_at
+
+Bu yapı sayesinde kullanıcıların girdiği yorumlar, tahmin edilen duygu değerleri ve sınıflandırma zamanları daha sonra analiz edilebilir.
+
+---
+
+## 12. Dashboard Özellikleri
+
+Dashboard, Streamlit ile geliştirilmiştir.
+
+Dashboard içinde şu sayfalar bulunur:
+
+### 12.1 Tahmin Sayfası
+
+Kullanıcı yeni bir müşteri yorumu girer ve sistem anlık duygu tahmini üretir.
+
+Gösterilen bilgiler:
+
+* Tahmin edilen duygu
+* Güven skoru
+* Ham model sonucu
+* Sınıf olasılıkları
+
+### 12.2 Analitik Sayfası
+
+Duygu dağılımları ve tahmin eğilimleri görüntülenir.
+
+### 12.3 Model Performansı Sayfası
+
+Model karşılaştırma sonuçları, metrik tablosu ve confusion matrix gösterilir.
+
+### 12.4 Veri Seti Sayfası
+
+İşlenmiş veri setinden örnek kayıtlar gösterilir.
+
+### 12.5 SQL Kayıtları Sayfası
+
+Veritabanındaki `reviews` ve `predictions` tabloları görüntülenir.
+
+---
+
+## 13. Dashboard Ekran Görüntüleri
+
+### Tahmin Sayfası
+
+![Prediction Page](docs/screenshots/prediction_page.png)
+
+### Analitik Sayfası
+
+![Analytics Page](docs/screenshots/analytics_page.png)
+
+### Model Performansı
+
+![Model Performance Page](docs/screenshots/model_performance_page.png)
+
+### Veri Seti Sayfası
+
+![Dataset Page](docs/screenshots/dataset_page.png)
+
+### SQL Kayıtları Sayfası
+
+![SQL Records Page](docs/screenshots/sql_records_page.png)
+
+---
+
+## 14. Kurulum
+
+Projeyi çalıştırmak için Python 3.12 kullanılması önerilir.
+
+### 14.1 Sanal Ortam Oluşturma
 
 ```bash
-python -m venv .venv
+py -3.12 -m venv .venv
 ```
 
-Windows:
+Windows PowerShell üzerinde sanal ortamı aktif etmek için:
 
 ```bash
-.venv\Scripts\activate
+.\.venv\Scripts\activate
 ```
 
-macOS / Linux:
+### 14.2 Gerekli Paketleri Kurma
 
 ```bash
-source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 ```
 
-Paketleri kur:
+---
+
+## 15. Veri Setini Yerleştirme
+
+Kaggle'dan indirilen `archive.zip` dosyası açıldıktan sonra şu dosyalar elde edilir:
+
+```text
+train.ft.txt.bz2
+test.ft.txt.bz2
+```
+
+Bu dosyalar şu klasöre yerleştirilmelidir:
+
+```text
+data/raw/
+```
+
+Beklenen dosya yolları:
+
+```text
+data/raw/train.ft.txt.bz2
+data/raw/test.ft.txt.bz2
+```
+
+---
+
+## 16. Model Eğitimi
+
+Final eğitim için kullanılan komut:
 
 ```bash
-pip install -r requirements.txt
+python scripts/run_training.py --dataset data/raw/train.ft.txt.bz2 --limit 100000
 ```
 
-Modeli eğit ve SQL veritabanını hazırla:
+Bu komut:
 
-```bash
-python scripts/run_training.py
-```
+* Veri setini okur
+* Etiketleri dönüştürür
+* Metin ön işleme yapar
+* TF-IDF özellik çıkarımı uygular
+* Logistic Regression, Naive Bayes ve SVM modellerini eğitir
+* Modelleri karşılaştırır
+* En iyi modeli kaydeder
+* Metrikleri üretir
+* Grafik dosyalarını oluşturur
+* İşlenmiş veri setini kaydeder
+* SQL veritabanını günceller
 
-Dashboard'u başlat:
+---
+
+## 17. Dashboard Çalıştırma
+
+Model eğitildikten sonra dashboard şu komutla başlatılır:
 
 ```bash
 streamlit run app.py
 ```
 
-Tarayıcıda aç:
+Dashboard tarayıcıda şu adresten açılır:
 
 ```text
 http://localhost:8501
 ```
 
-### 7.2. Kaggle Veri Seti ile Eğitim
+---
 
-Kaggle dosyasını `data/raw/` içine koyduktan sonra:
+## 18. Docker ile Çalıştırma
 
-```bash
-python scripts/run_training.py --dataset data/raw/train.ft.txt.bz2 --limit 50000
-```
+Projede Docker desteği de bulunmaktadır.
 
-CSV formatı kullanıyorsan:
-
-```bash
-python scripts/run_training.py --dataset data/raw/amazon_alexa_reviews.csv
-```
-
-### 7.3. Docker ile Çalıştırma
+Docker ile çalıştırmak için:
 
 ```bash
 docker compose up --build
 ```
 
-Dashboard:
+Bu komut, uygulamayı container ortamında çalıştırmak için kullanılabilir.
 
-```text
-http://localhost:8501
-```
+---
 
-## 8. Gösterge Paneli Özellikleri
+## 19. Git ve GitHub Kullanımı
 
-Dashboard şunları sağlar:
+Projede Git sürüm kontrolü kullanılmalıdır.
 
-- Yeni yorum girme
-- Anlık duygu tahmini alma
-- Güven skoru görüntüleme
-- Sınıf olasılıklarını görme
-- Tahminleri SQL veritabanına kaydetme
-- Duygu dağılımı grafikleri
-- Günlük duygu eğilimleri
-- Model karşılaştırma grafikleri
-- Confusion Matrix görüntüleme
-- En sık kullanılan kelimeleri inceleme
-- `reviews` ve `predictions` SQL tablolarını görüntüleme
-
-## 9. Gösterge Paneli Ekran Görüntüleri
-
-Örnek arayüz görseli:
-
-![Dashboard Mockup](docs/screenshots/dashboard_mockup.png)
-
-Eğitim sonrası oluşturulan grafikler:
-
-![Model Comparison](reports/figures/model_comparison.png)
-
-![Confusion Matrix](reports/figures/confusion_matrix.png)
-
-![Word Frequency](reports/figures/word_frequency.png)
-
-## 10. Proje Yapısı
-
-```text
-nlp_sentiment_dashboard/
-├── app.py
-├── requirements.txt
-├── Dockerfile
-├── docker-compose.yml
-├── README.md
-├── GIT_COMMIT_PLAN.md
-├── data/
-│   ├── raw/
-│   │   ├── README.md
-│   │   └── sample_reviews.csv
-│   └── processed/
-├── docs/
-│   ├── SYSTEM_DESIGN.md
-│   └── screenshots/
-├── models/
-├── reports/
-│   └── figures/
-├── scripts/
-│   ├── init_db.py
-│   ├── prepare_dataset.py
-│   └── run_training.py
-├── sql/
-│   ├── analytics_queries.sql
-│   ├── schema_sqlite.sql
-│   └── schema_sqlserver.sql
-└── src/
-    ├── config.py
-    ├── data_loader.py
-    ├── database.py
-    ├── predict.py
-    ├── preprocessing.py
-    └── train_models.py
-```
-
-## 11. DataCamp Faz-1 İçerikleri ile İlişki
-
-Bu proje Faz-1 kapsamındaki eğitimleri şu şekilde uygular:
-
-| Faz-1 Eğitimi | Projedeki Karşılığı |
-| --- | --- |
-| Github Temelleri | Düzenli repo yapısı, `.gitignore`, anlamlı commit planı, GitHub Actions |
-| Konteynerizasyon ve Sanallaştırma | `Dockerfile` ve `docker-compose.yml` |
-| İstatistik Temelleri | Accuracy, Precision, Recall, F1-Score, Confusion Matrix, dağılım ve yüzde analizleri |
-| Doğal Dil İşleme | Text cleaning, tokenization, stopword removal, TF-IDF, sentiment classification |
-| SQL Server for Database Administrators | SQL tablo tasarımı, index kullanımı, SQL Server uyumlu şema, analitik sorgular |
-
-## 12. GitHub'a Yükleme
+Örnek Git komutları:
 
 ```bash
-git remote add origin https://github.com/<kullanici-adi>/nlp-sentiment-dashboard.git
-git branch -M main
-git push -u origin main
+git status
+git add .
+git commit -m "Complete NLP sentiment dashboard project"
+git push
 ```
 
-GitHub'a yüklemeden önce kontrol listesi:
+GitHub'a yüklemeden önce büyük veri dosyalarının eklenmediği kontrol edilmelidir.
 
-- `README.md` güncel mi?
-- `python scripts/run_training.py` sorunsuz çalışıyor mu?
-- `streamlit run app.py` dashboard'u açıyor mu?
-- `docker compose up --build` çalışıyor mu?
-- Kaggle veri seti büyükse `.gitignore` içine takılmadan GitHub'a yüklenmiyor mu?
-- Dashboard ekran görüntüleri `docs/screenshots/` içine eklendi mi?
+GitHub'a yüklenmemesi gereken dosya ve klasörler:
 
-## 13. Öğrenim Çıktıları
+```text
+.venv/
+data/raw/train.ft.txt.bz2
+data/raw/test.ft.txt.bz2
+archive.zip
+__pycache__/
+*.db
+```
 
-Bu proje ile aşağıdaki konular uygulanmıştır:
+---
 
-- Doğal Dil İşleme
-- Metin ön işleme
-- Makine öğrenmesi sınıflandırması
-- Model değerlendirme
-- SQL veritabanı entegrasyonu
-- Veri görselleştirme
-- Streamlit dashboard geliştirme
-- Git ve GitHub sürüm kontrolü
-- Docker ile konteynerleştirme
-- Uçtan uca yapay zekâ sistemi geliştirme
+## 20. Proje İsterleri Kontrol Listesi
+
+| İster                                          | Durum      |
+| ---------------------------------------------- | ---------- |
+| Kaggle Amazon Reviews veri seti kullanımı      | Tamamlandı |
+| Veri setinin pandas DataFrame olarak işlenmesi | Tamamlandı |
+| SQL tablo entegrasyonu                         | Tamamlandı |
+| Text cleaning                                  | Tamamlandı |
+| Lowercase conversion                           | Tamamlandı |
+| Stopword removal                               | Tamamlandı |
+| Tokenization                                   | Tamamlandı |
+| TF-IDF feature extraction                      | Tamamlandı |
+| Logistic Regression modeli                     | Tamamlandı |
+| Naive Bayes modeli                             | Tamamlandı |
+| Support Vector Machine modeli                  | Tamamlandı |
+| Accuracy metriği                               | Tamamlandı |
+| Precision metriği                              | Tamamlandı |
+| Recall metriği                                 | Tamamlandı |
+| F1-Score metriği                               | Tamamlandı |
+| Confusion Matrix                               | Tamamlandı |
+| SQL'e yorum metni kaydetme                     | Tamamlandı |
+| SQL'e tahmin edilen duygu kaydetme             | Tamamlandı |
+| SQL'e güven skoru kaydetme                     | Tamamlandı |
+| SQL'e sınıflandırma zaman damgası kaydetme     | Tamamlandı |
+| Streamlit dashboard                            | Tamamlandı |
+| Yeni yorum girişi                              | Tamamlandı |
+| Anlık duygu tahmini                            | Tamamlandı |
+| Duygu dağılımı görselleştirme                  | Tamamlandı |
+| Model karşılaştırma grafikleri                 | Tamamlandı |
+| Kelime frekans analizi                         | Tamamlandı |
+| Dashboard ekran görüntüleri                    | Tamamlandı |
+| README dosyası                                 | Tamamlandı |
+| GitHub proje yapısı                            | Hazır      |
+
+---
+
+## 21. Sonuç
+
+Bu proje kapsamında uçtan uca çalışan bir duygu analizi sistemi geliştirilmiştir. Sistem, Kaggle Amazon Reviews veri seti üzerinde eğitilen makine öğrenmesi modellerini kullanarak müşteri yorumlarını sınıflandırır.
+
+Final eğitim sonucunda en iyi performansı **Support Vector Machine** modeli göstermiştir. Sistem, kullanıcıların yeni yorumlar girmesine, anlık duygu tahmini almasına, sonuçları SQL veritabanında saklamasına ve dashboard üzerinden analiz etmesine olanak sağlar.
+
+Bu yönüyle proje; NLP, istatistiksel model değerlendirme, SQL veritabanı entegrasyonu, veri görselleştirme, dashboard geliştirme ve Git sürüm kontrolü konularını bir araya getiren bütünleşik bir yapay zekâ uygulamasıdır.

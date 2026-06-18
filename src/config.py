@@ -21,5 +21,5 @@ MODEL_COMPARISON_PATH = FIGURE_DIR / "model_comparison.png"
 WORD_FREQUENCY_PATH = FIGURE_DIR / "word_frequency.png"
 
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'sentiment_dashboard.db'}")
-CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.45"))
+CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.80"))
 RANDOM_STATE = int(os.getenv("RANDOM_STATE", "42"))

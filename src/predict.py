@@ -1,13 +1,44 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional, Tuple
+import unicodedata
 
 import joblib
 import numpy as np
 
 from src.config import CONFIDENCE_THRESHOLD, MODEL_PATH
 from src.preprocessing import clean_text
+
+
+TURKISH_NEGATIVE_TERMS = {
+    "berbat", "kotu", "k?t?", "cok kotu", "?ok k?t?", "rezalet", "begenmedim",
+    "hic begenmedim", "hayal kirikligi", "ise yaramaz",
+    "bozuk", "kalitesiz", "pismanim", "nefret", "vasat",
+    "sorunlu", "korkunc", "iade", "memnun kalmadim"
+}
+
+TURKISH_POSITIVE_TERMS = {
+    "harika", "mukemmel", "m?kemmel", "cok iyi", "super", "begendim",
+    "tavsiye ederim", "memnun kaldim", "kaliteli", "basarili",
+    "guzel", "efsane", "muthis", "sorunsuz", "sevdim"
+}
+
+TURKISH_NEUTRAL_TERMS = {
+    "idare eder", "?dare eder", "orta", "ortalama", "normal", "fena degil",
+    "eh iste", "siradan", "ne iyi ne kotu"
+}
+
+
+def normalize_for_rules(text: str) -> str:
+    value = str(text).casefold()
+    value = value.replace("?", "i").replace("?", "i")
+    value = value.replace("?", "c").replace("?", "g")
+    value = value.replace("?", "o").replace("?", "s")
+    value = value.replace("?", "u")
+    value = unicodedata.normalize("NFKD", value)
+    value = "".join(ch for ch in value if not unicodedata.combining(ch))
+    return value
 
 
 def load_model(model_path: str | Path = MODEL_PATH) -> Dict:
@@ -19,8 +50,33 @@ def load_model(model_path: str | Path = MODEL_PATH) -> Dict:
     return joblib.load(model_path)
 
 
-def predict_sentiment(review_text: str, model_bundle: Dict | None = None, threshold: float = CONFIDENCE_THRESHOLD) -> Dict:
-    """Predict Positive, Negative or Neutral sentiment and return confidence."""
+def rule_based_turkish_sentiment(text: str) -> Tuple[Optional[str], Optional[float]]:
+    normalized = normalize_for_rules(text)
+
+    neutral_hits = sum(1 for term in TURKISH_NEUTRAL_TERMS if term in normalized)
+    negative_hits = sum(1 for term in TURKISH_NEGATIVE_TERMS if term in normalized)
+    positive_hits = sum(1 for term in TURKISH_POSITIVE_TERMS if term in normalized)
+
+    if neutral_hits > 0 and negative_hits == 0 and positive_hits == 0:
+        return "Neutral", 0.80
+
+    if negative_hits > positive_hits and negative_hits > 0:
+        return "Negative", 0.95
+
+    if positive_hits > negative_hits and positive_hits > 0:
+        return "Positive", 0.95
+
+    if neutral_hits > 0:
+        return "Neutral", 0.80
+
+    return None, None
+
+
+def predict_sentiment(
+    review_text: str,
+    model_bundle: Dict | None = None,
+    threshold: float = CONFIDENCE_THRESHOLD
+) -> Dict:
     if model_bundle is None:
         model_bundle = load_model()
 
@@ -29,6 +85,7 @@ def predict_sentiment(review_text: str, model_bundle: Dict | None = None, thresh
     classes = list(model.classes_)
 
     probabilities = None
+
     if hasattr(model, "predict_proba"):
         probabilities = model.predict_proba([review_text])[0]
         best_idx = int(np.argmax(probabilities))
@@ -38,9 +95,12 @@ def predict_sentiment(review_text: str, model_bundle: Dict | None = None, thresh
         predicted = str(model.predict([review_text])[0])
         confidence = 1.0
 
-    # If the model is uncertain, present the result as Neutral. This also supports
-    # binary Amazon Reviews files where the original dataset has no explicit neutral class.
-    if confidence < threshold:
+    rule_sentiment, rule_confidence = rule_based_turkish_sentiment(review_text)
+
+    if rule_sentiment is not None:
+        displayed_sentiment = rule_sentiment
+        confidence = max(confidence, rule_confidence or confidence)
+    elif confidence < threshold:
         displayed_sentiment = "Neutral"
     else:
         displayed_sentiment = predicted

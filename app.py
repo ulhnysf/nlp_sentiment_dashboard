@@ -20,7 +20,6 @@ from src.config import (
 )
 from src.database import init_db, read_table, save_prediction
 from src.predict import load_model, predict_sentiment
-from src.train_models import train_and_save
 
 st.set_page_config(page_title="NLP Sentiment Dashboard", page_icon="💬", layout="wide")
 
@@ -28,7 +27,8 @@ st.set_page_config(page_title="NLP Sentiment Dashboard", page_icon="💬", layou
 @st.cache_resource(show_spinner=False)
 def cached_model():
     if not MODEL_PATH.exists():
-        train_and_save()
+        st.error("Model dosyas? bulunamad?. Terminalden `python scripts/run_training.py --dataset data/raw/train.ft.txt.bz2 --limit 10000` komutunu ?al??t?r?n.")
+        st.stop()
     return load_model(MODEL_PATH)
 
 
@@ -86,13 +86,7 @@ def main():
         st.header("Menü")
         page = st.radio("Sayfa seç", ["Tahmin", "Analitik", "Model Performansı", "Veri Seti", "SQL Kayıtları"])
         st.divider()
-        if st.button("Örnek veriyle modeli yeniden eğit"):
-            with st.spinner("Model eğitiliyor..."):
-                summary = train_and_save()
-                st.success(f"Eğitim tamamlandı. En iyi model: {summary['best_model']}")
-                st.cache_resource.clear()
-                st.cache_data.clear()
-
+        st.info("Model Kaggle verisiyle egitildi. Yeniden egitim icin terminalden scripts/run_training.py komutunu kullan.")
     if page == "Tahmin":
         st.subheader("Yeni Yorum Sınıflandır")
         review = st.text_area("Müşteri yorumu", height=140, placeholder="Örn: The sound quality is great and setup was very easy...")
@@ -139,7 +133,7 @@ def main():
         st.subheader("Model Karşılaştırması ve Değerlendirme")
         metrics = load_metrics()
         if metrics.empty:
-            st.info("Model metrikleri bulunamadı. Sidebar üzerinden modeli eğitin.")
+            st.info("Model metrikleri bulunamadi. Terminalden scripts/run_training.py komutunu calistirarak modeli egitin.")
         else:
             st.dataframe(metrics, use_container_width=True)
             if MODEL_COMPARISON_PATH.exists():
