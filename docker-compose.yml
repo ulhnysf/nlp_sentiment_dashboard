@@ -1,4 +1,4 @@
-services:
+﻿services:
   sentiment-dashboard:
     build: .
     container_name: nlp-sentiment-dashboard
@@ -8,9 +8,10 @@ services:
       - ./data:/app/data
       - ./models:/app/models
       - ./reports:/app/reports
-      - ./sentiment_dashboard.db:/app/sentiment_dashboard.db
+      - ./docs:/app/docs
     environment:
-      - DATABASE_URL=sqlite:////app/sentiment_dashboard.db
-      - CONFIDENCE_THRESHOLD=0.45
+      - DATABASE_URL=sqlite:////app/data/sentiment_dashboard.db
+      - CONFIDENCE_THRESHOLD=0.80
     command: >
-      sh -c "python scripts/run_training.py && streamlit run app.py --server.address=0.0.0.0 --server.port=8501"
+      sh -c "if [ ! -f models/best_model.joblib ]; then python scripts/run_training.py --dataset data/raw/sample_reviews.csv; fi &&
+             streamlit run app.py --server.address=0.0.0.0 --server.port=8501"
