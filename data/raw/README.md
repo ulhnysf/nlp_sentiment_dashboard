@@ -1,33 +1,71 @@
-# Dataset Placement
+# Raw Dataset Directory
 
-The project is configured to work with the Kaggle dataset mentioned in the assignment:
+Bu klasör, Kaggle Amazon Reviews veri seti dosyalarının yerleştirileceği klasördür.
 
-- `bittlingmayer/amazonreviews`
+## Kullanılan Veri Seti
 
-Because Kaggle downloads usually require authentication, this folder contains `sample_reviews.csv` so the project runs immediately.
+Projede Kaggle üzerinde bulunan Amazon Reviews veri seti kullanılmıştır:
 
-## Recommended Kaggle usage
-
-1. Download the dataset manually from Kaggle.
-2. Place one of these files in this folder:
-   - `train.ft.txt.bz2`
-   - `test.ft.txt.bz2`
-   - a CSV file with columns such as `review_text` and `sentiment`, or `verified_reviews` and `rating`.
-3. Train using:
-
-```bash
-python scripts/run_training.py --dataset data/raw/train.ft.txt.bz2 --limit 50000
+```text
+bittlingmayer/amazonreviews
 ```
 
-If your file has ratings from 1 to 5, the loader maps them like this:
+Kaggle arşivi açıldığında aşağıdaki dosyalar elde edilir:
 
-- 1-2: Negative
-- 3: Neutral
-- 4-5: Positive
+```text
+train.ft.txt.bz2
+test.ft.txt.bz2
+```
 
-If your file uses fastText labels from `bittlingmayer/amazonreviews`, the loader maps:
+Bu dosyalar fastText formatındadır. Veri setindeki etiketler şu şekilde yorumlanır:
 
-- `__label__1`: Negative
-- `__label__2`: Positive
+```text
+__label__1 -> Negative
+__label__2 -> Positive
+```
 
-For binary datasets, neutral predictions are still supported through a confidence threshold in the prediction layer.
+## Neden Kaggle Dosyaları GitHub'a Yüklenmedi?
+
+`train.ft.txt.bz2` ve `test.ft.txt.bz2` dosyaları büyük boyutlu veri dosyalarıdır. Bu nedenle GitHub reposuna eklenmemiştir.
+
+Projeyi çalıştırmak isteyen kullanıcı bu dosyaları Kaggle'dan indirip bu klasöre yerleştirmelidir.
+
+Beklenen dosya yolları:
+
+```text
+data/raw/train.ft.txt.bz2
+data/raw/test.ft.txt.bz2
+```
+
+## Örnek Veri
+
+Projede hızlı testler için küçük bir `sample_reviews.csv` dosyası da bulunmaktadır.
+
+Bu dosya:
+
+* Proje yapısını hızlı test etmek
+* Docker senaryosunda küçük veriyle model oluşturmak
+* Dashboard'u hızlı şekilde çalıştırmak
+
+için kullanılabilir.
+
+Ancak final model eğitimi için asıl kullanılan veri seti Kaggle Amazon Reviews veri setidir.
+
+## Final Eğitim Komutu
+
+Final model eğitimi için kullanılan komut:
+
+```bash
+python scripts/run_training.py --dataset data/raw/train.ft.txt.bz2 --limit 100000
+```
+
+Bu komut çalıştırıldığında:
+
+* Veri seti okunur
+* Etiketler Positive ve Negative olarak dönüştürülür
+* NLP ön işleme süreci uygulanır
+* TF-IDF özellik çıkarımı yapılır
+* Logistic Regression, Naive Bayes ve Support Vector Machine modelleri eğitilir
+* Model sonuçları karşılaştırılır
+* En iyi model `models/best_model.joblib` olarak oluşturulur
+* Model metrikleri ve grafikler yeniden üretilir
